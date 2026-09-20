@@ -1,0 +1,125 @@
+services:
+  osrm-car-extract:
+    image: osrm/osrm-backend
+    container_name: osrm-car-extract
+    volumes:
+      - ./data:/data
+    command: osrm-extract -p /opt/car.lua /data/map.osm.pbf
+    networks:
+      - osrm-network
+
+  osrm-car-partition:
+    image: osrm/osrm-backend
+    container_name: osrm-car-partition
+    volumes:
+      - ./data:/data
+    command: osrm-partition /data/map.osrm
+    depends_on:
+      osrm-car-extract:
+        condition: service_completed_successfully
+    networks:
+      - osrm-network
+
+  osrm-gen-traffic-peak:
+    image: python:3.12-slim
+    container_name: osrm-gen-traffic-peak
+    volumes:
+      - ./data:/data
+      - ./scripts:/scripts
+    working_dir: /scripts
+    command:
+      - bash
+      - -c
+      - >
+        apt-get update -qq && apt-get install -y -qq --no-install-recommends libexpat1 zlib1g libbz2-1.0
+        && pip install --quiet osmium
+        && python gen_traffic.py --pbf /data/map.osm.pbf --hour 8 --out /data/traffic_peak_07_08.csv
+
+    depends_on:
+      osrm-car-partition:
+        condition: service_completed_successfully
+    networks:
+      - osrm-network
+
+  osrm-gen-traffic-offpeak:
+    image: python:3.12-slim
+    container_name: osrm-gen-traffic-offpeak
+    volumes:
+      - ./data:/data
+      - ./scripts:/scripts
+    working_dir: /scripts
+    command:
+      - bash
+      - -c
+      - >
+        apt-get update -qq && apt-get install -y -qq --no-install-recommends libexpat1 zlib1g libbz2-1.0
+        && pip install --quiet osmium
+        && python gen_traffic.py --pbf /data/map.osm.pbf --hour 10 --out /data/traffic_offpeak.csv
+
+    depends_on:
+      osrm-car-partition:
+        condition: service_completed_successfully
+    networks:
+      - osrm-network
+
+  osrm-car-customize-peak:
+    image: osrm/osrm-backend
+    container_name: osrm-car-customize-peak
+    volumes:
+      - ./data:/data
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - for f in /data/map.osrm*; do cp -r "$$f" "/data/osm-peak$${f#/data/map}"; done && osrm-customize /data/osm-peak.osrm --segment-speed-file /data/traffic_peak_07_08.csv
+    depends_on:
+      osrm-gen-traffic-peak:
+        condition: service_completed_successfully
+    networks:
+      - osrm-network
+
+  osrm-car-customize-offpeak:
+    image: osrm/osrm-backend
+    container_name: osrm-car-customize-offpeak
+    volumes:
+      - ./data:/data
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - for f in /data/map.osrm*; do cp -r "$$f" "/data/osm-offpeak$${f#/data/map}"; done && osrm-customize /data/osm-offpeak.osrm --segment-speed-file /data/traffic_offpeak.csv
+    depends_on:
+      osrm-gen-traffic-offpeak:
+        condition: service_completed_successfully
+    networks:
+      - osrm-network
+
+  osrm-car-routed-peak:
+    image: osrm/osrm-backend
+    container_name: osrm-car-routed-peak
+    volumes:
+      - ./data:/data
+    ports:
+      - "${PORT_OSRM_PEAK:-5001}:5000"
+    command: osrm-routed --algorithm mld /data/osm-peak.osrm --max-table-size 5000
+    depends_on:
+      osrm-car-customize-peak:
+        condition: service_completed_successfully
+    restart: always
+    networks:
+      - osrm-network
+
+  osrm-car-routed-offpeak:
+    image: osrm/osrm-backend
+    container_name: osrm-car-routed-offpeak
+    volumes:
+      - ./data:/data
+    ports:
+      - "${PORT_OSRM_OFFPEAK:-5002}:5000"
+    command: osrm-routed --algorithm mld /data/osm-offpeak.osrm --max-table-size 5000
+    depends_on:
+      osrm-car-customize-offpeak:
+        condition: service_completed_successfully
+    restart: always
+    networks:
+      - osrm-network
+
+networks:
+  osrm-network:
+    name: osrm-network
