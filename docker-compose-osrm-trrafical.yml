@@ -6,7 +6,7 @@ services:
       - ./data:/data
     command: osrm-extract -p /opt/car.lua /data/map.osm.pbf
     networks:
-      - osrm-network
+      - app-network
 
   osrm-car-partition:
     image: osrm/osrm-backend
@@ -18,7 +18,7 @@ services:
       osrm-car-extract:
         condition: service_completed_successfully
     networks:
-      - osrm-network
+      - app-network
 
   osrm-gen-traffic-peak:
     image: python:3.12-slim
@@ -39,7 +39,7 @@ services:
       osrm-car-partition:
         condition: service_completed_successfully
     networks:
-      - osrm-network
+      - app-network
 
   osrm-gen-traffic-offpeak:
     image: python:3.12-slim
@@ -60,7 +60,7 @@ services:
       osrm-car-partition:
         condition: service_completed_successfully
     networks:
-      - osrm-network
+      - app-network
 
   osrm-car-customize-peak:
     image: osrm/osrm-backend
@@ -74,7 +74,7 @@ services:
       osrm-gen-traffic-peak:
         condition: service_completed_successfully
     networks:
-      - osrm-network
+      - app-network
 
   osrm-car-customize-offpeak:
     image: osrm/osrm-backend
@@ -88,7 +88,7 @@ services:
       osrm-gen-traffic-offpeak:
         condition: service_completed_successfully
     networks:
-      - osrm-network
+      - app-network
 
   osrm-car-routed-peak:
     image: osrm/osrm-backend
@@ -97,13 +97,13 @@ services:
       - ./data:/data
     ports:
       - "${PORT_OSRM_PEAK:-5001}:5000"
-    command: osrm-routed --algorithm mld /data/osm-peak.osrm --max-table-size 5000
+    command: osrm-routed --algorithm mld /data/osm-peak.osrm --max-table-size 50000
     depends_on:
       osrm-car-customize-peak:
         condition: service_completed_successfully
     restart: always
     networks:
-      - osrm-network
+      - app-network
 
   osrm-car-routed-offpeak:
     image: osrm/osrm-backend
@@ -112,14 +112,14 @@ services:
       - ./data:/data
     ports:
       - "${PORT_OSRM_OFFPEAK:-5002}:5000"
-    command: osrm-routed --algorithm mld /data/osm-offpeak.osrm --max-table-size 5000
+    command: osrm-routed --algorithm mld /data/osm-offpeak.osrm --max-table-size 50000
     depends_on:
       osrm-car-customize-offpeak:
         condition: service_completed_successfully
     restart: always
     networks:
-      - osrm-network
+      - app-network
 
 networks:
-  osrm-network:
-    name: osrm-network
+  app-network:
+    external: true

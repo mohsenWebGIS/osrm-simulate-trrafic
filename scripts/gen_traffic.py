@@ -11,12 +11,12 @@ FREEFLOW = {  # هم‌تراز با car.lua
 
 # ضرایب هر باکت نسبت به free-flow
 PEAK = {
-    "motorway": 0.50, "motorway_link": 0.50,
-    "trunk": 0.50, "trunk_link": 0.55,
-    "primary": 0.55, "primary_link": 0.60,
-    "secondary": 0.65, "tertiary": 0.75,
-    "residential": 0.85, "unclassified": 0.85,
-    "living_street": 0.95, "service": 0.95,
+    "motorway": 0.3, "motorway_link": 0.3,
+    "trunk": 0.2, "trunk_link": 0.2,
+    "primary": 0.35, "primary_link": 0.35,
+    "secondary": 0.3, "tertiary": 0.4,
+    "residential": 0.55, "unclassified": 0.55,
+    "living_street": 0.60, "service": 0.60,
 }
 OFFPEAK = {k: min(1.0, v + 0.25) for k, v in PEAK.items()}
 NIGHT = {k: 1.0 for k in PEAK}
